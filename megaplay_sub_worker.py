@@ -96,11 +96,14 @@ def main():
     sub_url = upload_sub_to_github_release(sinhala_vtt, anime_id, ep_num, GITHUB_TOKEN, GITHUB_REPO)
     print(f"✅ Subtitle uploaded successfully: {sub_url}", flush=True)
 
-    # 4. Save in Firestore episode document: stream_subtitles.sinhala
+    # 4. Save in Firestore episode document: stream_subtitles.sinhala (and subtitles.sinhala)
     print(f"💾 Updating Firestore document: {episode_path}...", flush=True)
     ep_ref = db.document(episode_path)
     ep_ref.set({
         "stream_subtitles": {
+            "sinhala": sub_url
+        },
+        "subtitles": {
             "sinhala": sub_url
         }
     }, merge=True)
