@@ -197,14 +197,22 @@ def process_and_translate_vtt(vtt_content, max_threads=20):
     return "\n".join(out_lines)
 
 def upload_sub_to_github_release(vtt_text, anime_id, ep_num, github_token, github_repo):
-    """Uploads Sinhala WebVTT as direct asset to a GitHub Release, returning permanent DDL"""
+    """Uploads Sinhala WebVTT as direct asset to a GitHub Release, chunked by 500 episodes to respect 1000 asset limit"""
     headers = {
         "Authorization": f"Bearer {github_token}",
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "MegaPlaySubBot/1.0"
     }
 
-    tag_name = f"sub-ani-{anime_id}"
+    # GitHub limits each release to 1,000 assets max.
+    # We chunk large series (like One Piece) into batches of 500 episodes:
+    # Episodes 1-500: sub-ani-{anime_id} (or sub-ani-{anime_id}-p1)
+    # Episodes 501-1000: sub-ani-{anime_id}-p2
+    # Episodes 1001-1500: sub-ani-{anime_id}-p3
+    ep_int = int(ep_num)
+    chunk_idx = ((ep_int - 1) // 500) + 1
+    tag_name = f"sub-ani-{anime_id}" if chunk_idx == 1 else f"sub-ani-{anime_id}-p{chunk_idx}"
+
     rel_url = f"https://api.github.com/repos/{github_repo}/releases/tags/{tag_name}"
     resp = requests.get(rel_url, headers=headers, timeout=15)
 
@@ -218,10 +226,11 @@ def upload_sub_to_github_release(vtt_text, anime_id, ep_num, github_token, githu
     else:
         # Create Release
         create_url = f"https://api.github.com/repos/{github_repo}/releases"
+        part_suffix = f" (Part {chunk_idx})" if chunk_idx > 1 else ""
         c_resp = requests.post(create_url, headers=headers, json={
             "tag_name": tag_name,
-            "name": f"Subtitles - Anime {anime_id}",
-            "body": f"Automated WebVTT subtitles for Anime ID {anime_id}",
+            "name": f"Subtitles - Anime {anime_id}{part_suffix}",
+            "body": f"Automated WebVTT subtitles for Anime ID {anime_id} (Part {chunk_idx})",
             "draft": False,
             "prerelease": False
         }, timeout=15)
